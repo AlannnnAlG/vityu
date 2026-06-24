@@ -43,8 +43,8 @@ const LoginPage = () => {
       
       toast.success('Login berhasil!');
       
-      // 🔥 LANGSUNG REDIRECT KE ORDERS
-      window.location.href = '/orders';
+      // 🔥 REDIRECT KE HOME (BUKAN ORDERS)
+      window.location.href = '/';
       
     } catch (err) {
       console.error('❌ Login error:', err);

@@ -104,6 +104,9 @@ const CheckoutPage = () => {
       localStorage.setItem('vityuu_shipping_kode_pos', shippingData.kode_pos);
       localStorage.setItem('vityuu_checkout_total', total.toString());
       localStorage.setItem('vityuu_checkout_payment', JSON.stringify(PAYMENT_METHODS.find(m => m.id === selectedPayment)));
+      localStorage.setItem('vityuu_last_checkout_items', JSON.stringify(checkoutItems));
+
+
 
       // ── BUAT TRANSAKSI DENGAN SHIPPING DATA ──
       const response = await apiClient.post('/payment/create-transaction', { 

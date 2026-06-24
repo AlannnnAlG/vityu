@@ -17,12 +17,10 @@ const MIDTRANS_API_URL = MIDTRANS_IS_PRODUCTION
 
 const encodedKey = () => Buffer.from(`${MIDTRANS_SERVER_KEY}:`).toString('base64');
 
-// 🔥 FUNGSI POTONG NAMA PRODUK (MAKS 50 KARAKTER)
+// ─── Helper: Potong nama produk ──────────────────────────────────────────────
 const truncateName = (name, maxLength = 50) => {
   if (!name) return 'Produk';
-  // Hapus karakter yang bikin error
-  const cleanName = name.replace(/[^a-zA-Z0-9\s\-.,]/g, '');
-  return cleanName.length > maxLength ? cleanName.substring(0, maxLength - 3) + '...' : cleanName;
+  return name.length > maxLength ? name.substring(0, maxLength - 3) + '...' : name;
 };
 
 // ─── POST /payment/create-transaction ────────────────────────────────────────
@@ -94,7 +92,7 @@ router.post('/create-transaction', authMiddleware, async (req, res) => {
 
     const enabledPayments = getEnabledPayments(payment_method);
 
-    // 🔥 FIX: Potong nama produk & hitung ulang total
+    // ── FIX: Hitung ulang total & potong nama produk ──
     let totalFromItems = 0;
     const fixedItemDetails = (item_details || []).map(item => {
       const price = Math.round(item.price || 0);
@@ -112,7 +110,7 @@ router.post('/create-transaction', authMiddleware, async (req, res) => {
       };
     });
 
-    // 🔥 TAMBAHKAN ONGKIR
+    // ── TAMBAHKAN ONGKIR ──
     const shippingCost = 15000;
     fixedItemDetails.push({
       id: 'shipping_cost',
@@ -122,17 +120,14 @@ router.post('/create-transaction', authMiddleware, async (req, res) => {
     });
     totalFromItems += shippingCost;
 
-    // 🔥 PASTIKAN AMOUNT SAMA
+    // ── PASTIKAN AMOUNT SAMA ──
     const finalAmount = Math.round(amount);
     const grossAmount = Math.round(totalFromItems);
 
     logger.info(`💰 Amount from request: ${finalAmount}, Total from items: ${totalFromItems}, Gross amount: ${grossAmount}`);
 
-    // 🔥 PAKAI YANG DARI ITEMS
+    // ── FIX: Kalau gak sama, pake yang dari items ──
     const finalGrossAmount = grossAmount;
-
-    // 🔥 FIX: Customer details - bersihin nama
-    const cleanFirstName = truncateName(customer_details?.first_name || 'Pelanggan', 30);
 
     const snapPayload = {
       transaction_details: {
@@ -140,7 +135,7 @@ router.post('/create-transaction', authMiddleware, async (req, res) => {
         gross_amount: finalGrossAmount,
       },
       customer_details: {
-        first_name: cleanFirstName,
+        first_name: customer_details?.first_name || 'Pelanggan',
         last_name: customer_details?.last_name || '',
         email: customer_details?.email || 'customer@vityuu.com',
         phone: customer_details?.phone || '08123456789',

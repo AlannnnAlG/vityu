@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ShoppingCart, User, LogOut, Settings, LayoutDashboard, Package } from 'lucide-react';
+import { Menu, X, ShoppingCart, User, LogOut, Settings, LayoutDashboard, Package, Flame, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext.jsx';
@@ -26,11 +25,14 @@ const Header = () => {
     return () => window.removeEventListener('vityuu_cart_updated', updateCartCount);
   }, []);
 
+  // 🔥 NAV LINKS - TAMBAHIN TRACKER & INSIGHTS
   const navLinks = [
     { name: 'Home', path: '/' },
     { name: 'Shop', path: '/shop' },
     { name: 'Blog', path: '/blog' },
     { name: 'About', path: '/about' },
+     { name: 'Tracker', path: '/tracker', icon: Flame },
+    { name: 'Insights', path: '/insights', icon: BarChart3 },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -59,12 +61,13 @@ const Header = () => {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`text-sm font-medium transition-all duration-300 ${
+                className={`text-sm font-medium transition-all duration-300 flex items-center gap-1.5 ${
                   isActive(link.path)
                     ? 'text-primary font-bold relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-[2px] after:bg-primary after:rounded-full'
                     : 'text-foreground hover:text-primary'
                 }`}
               >
+                {link.icon && <link.icon className="w-4 h-4" />}
                 {link.name}
               </Link>
             ))}
@@ -102,6 +105,16 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/profile" className="cursor-pointer flex items-center">
                       <User className="w-4 h-4 mr-2" /> Lihat Profil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/tracker" className="cursor-pointer flex items-center">
+                      <Flame className="w-4 h-4 mr-2" /> Craving Tracker
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/insights" className="cursor-pointer flex items-center">
+                      <BarChart3 className="w-4 h-4 mr-2" /> Insights
                     </Link>
                   </DropdownMenuItem>
                   {currentUser.role === 'user' && (
@@ -169,12 +182,13 @@ const Header = () => {
                 key={link.path}
                 to={link.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-3 rounded-xl text-base font-medium transition-all ${
+                className={`block px-4 py-3 rounded-xl text-base font-medium transition-all flex items-center gap-3 ${
                   isActive(link.path)
                     ? 'bg-primary/10 text-primary font-bold'
                     : 'text-foreground hover:bg-muted'
                 }`}
               >
+                {link.icon && <link.icon className="w-5 h-5" />}
                 {link.name}
               </Link>
             ))}
@@ -188,6 +202,12 @@ const Header = () => {
                   </div>
                   <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium flex items-center">
                     <User className="w-5 h-5 mr-3" /> Profil
+                  </Link>
+                  <Link to="/tracker" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium flex items-center">
+                    <Flame className="w-5 h-5 mr-3" /> Tracker
+                  </Link>
+                  <Link to="/insights" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-muted text-foreground font-medium flex items-center">
+                    <BarChart3 className="w-5 h-5 mr-3" /> Insights
                   </Link>
                   {currentUser.role === 'admin' ? (
                     <Link to="/admin/dashboard" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 rounded-xl hover:bg-muted text-primary font-bold flex items-center">
