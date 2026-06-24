@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/contexts/AuthContext.jsx';
 import ProtectedRoute from '@/components/ProtectedRoute.jsx';
@@ -14,13 +13,16 @@ import BlogPage from './pages/BlogPage.jsx';
 import ContactPage from './pages/ContactPage.jsx';
 import CartPage from './pages/CartPage.jsx';
 
-// Unified Checkout Flow
 import CheckoutPage from './pages/CheckoutPage.jsx';
 import CheckoutSuccessPage from './pages/CheckoutSuccessPage.jsx';
 
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import UserProfilePage from './pages/UserProfilePage.jsx';
+
+// IMPORT ORDER PAGES
+import OrdersPage from './pages/OrdersPage.jsx';
+import OrderDetailPage from './pages/OrderDetailPage.jsx';
 
 // Admin Pages
 import AdminDashboard from './pages/AdminDashboard.jsx';
@@ -31,14 +33,10 @@ import AdminOrdersPage from './pages/AdminOrdersPage.jsx';
 import AdminOrderInvoicePage from './pages/AdminOrderInvoicePage.jsx';
 import AdminUsersPage from './pages/AdminUsersPage.jsx';
 
-// Stubs for future implementation if needed
-const OrderHistoryPage = () => <div>Order History Stub</div>;
-const OrderDetailPage = () => <div>Order Detail Stub</div>;
-
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <BrowserRouter>
         <ScrollToTop />
         <Routes>
           {/* Public Routes */}
@@ -55,8 +53,8 @@ function App() {
           {/* Authenticated User Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/profile" element={<UserProfilePage />} />
-            <Route path="/orders" element={<OrderHistoryPage />} />
-            <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/orders/:id" element={<OrderDetailPage />} />
             
             {/* Checkout Routes */}
             <Route path="/checkout" element={<CheckoutPage />} />
@@ -82,7 +80,7 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
         <Toaster />
-      </Router>
+      </BrowserRouter>
     </AuthProvider>
   );
 }

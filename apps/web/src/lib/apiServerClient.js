@@ -1,11 +1,18 @@
-const API_SERVER_URL = '/hcgi/api';
+import axios from 'axios';
+import pb from './pocketbaseClient.js';
 
-const apiServerClient = {
-    fetch: async (url, options = {}) => {
-        return await window.fetch(API_SERVER_URL + url, options);
-    }
-};
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+  headers: { 'Content-Type': 'application/json' },
+});
 
-export default apiServerClient;
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = pb?.authStore?.token;
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-export { apiServerClient };
+export default apiClient;

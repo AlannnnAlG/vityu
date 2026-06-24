@@ -1,22 +1,19 @@
-
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useAuth } from '@/contexts/AuthContext.jsx';
 import { toast } from 'sonner';
+import pb from '@/lib/pocketbaseClient.js';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -27,17 +24,30 @@ const LoginPage = () => {
 
     try {
       setLoading(true);
-      const authData = await login(email, password);
+      
+      // 🔥 LOGIN PAKAI POCKETBASE
+      const authData = await pb.collection('users').authWithPassword(email, password);
+      
+      // 🔥 SIMPAN KE LOCALSTORAGE PAKAI CARA MANUAL
+      localStorage.setItem('pb_token', authData.token);
+      localStorage.setItem('pb_auth', JSON.stringify({
+        record: authData.record,
+        token: authData.token
+      }));
+      
+      // 🔥 SET JUGA KE pb.authStore
+      pb.authStore.save(authData.token, authData.record);
+      
+      console.log('✅ Login success:', authData.record.email);
+      console.log('✅ Token saved:', !!localStorage.getItem('pb_token'));
+      
       toast.success('Login berhasil!');
       
-      if (authData.record.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        const origin = location.state?.from?.pathname || '/profile';
-        navigate(origin);
-      }
+      // 🔥 LANGSUNG REDIRECT KE ORDERS
+      window.location.href = '/orders';
+      
     } catch (err) {
-      console.error(err);
+      console.error('❌ Login error:', err);
       toast.error('Email atau password salah. Silakan coba lagi.');
     } finally {
       setLoading(false);
@@ -46,9 +56,7 @@ const LoginPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Login | Vityuu</title>
-      </Helmet>
+      <Helmet><title>Login | Vityuu</title></Helmet>
       
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
         <div className="w-full max-w-md bg-card rounded-3xl p-8 border border-border shadow-lg">
@@ -77,7 +85,6 @@ const LoginPage = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <a href="#" className="text-sm font-medium text-primary hover:underline">Lupa password?</a>
               </div>
               <Input 
                 id="password" 
@@ -88,13 +95,6 @@ const LoginPage = () => {
                 className="bg-background h-12"
                 required
               />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox id="remember" />
-              <label htmlFor="remember" className="text-sm font-medium leading-none text-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Ingat saya
-              </label>
             </div>
 
             <Button type="submit" className="w-full btn-primary h-12 text-base" disabled={loading}>

@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle, Package, Calendar, CreditCard, MapPin, ArrowRight, ShoppingBag } from 'lucide-react';
+import { CheckCircle, Clock, Package, Calendar, CreditCard, MapPin, ArrowRight, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
@@ -11,33 +10,33 @@ import Footer from '@/components/Footer.jsx';
 const CheckoutSuccessPage = () => {
   const navigate = useNavigate();
   const [orderDetails, setOrderDetails] = useState(null);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
-    const orderId = localStorage.getItem('vityuu_order_id');
-    const shipping = JSON.parse(localStorage.getItem('vityuu_checkout_shipping') || '{}');
-    const payment = JSON.parse(localStorage.getItem('vityuu_checkout_payment') || '{}');
-    const total = localStorage.getItem('vityuu_checkout_total') || '0';
+    const orderId    = localStorage.getItem('vityuu_order_id');
+    const shipping   = JSON.parse(localStorage.getItem('vityuu_checkout_shipping') || '{}');
+    const payment    = JSON.parse(localStorage.getItem('vityuu_checkout_payment')  || '{}');
+    const total      = localStorage.getItem('vityuu_checkout_total') || '0';
+    const pending    = localStorage.getItem('vityuu_payment_pending') === 'true';
 
-    if (!orderId) {
-      navigate('/');
-      return;
-    }
+    if (!orderId) { navigate('/'); return; }
 
     setOrderDetails({
       id: orderId,
       date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }),
       total: parseInt(total, 10),
       shipping,
-      payment
+      payment,
     });
+    setIsPending(pending);
 
-    // Cleanup checkout session
+    // Bersihkan session
     setTimeout(() => {
       localStorage.removeItem('vityuu_checkout_shipping');
       localStorage.removeItem('vityuu_checkout_payment');
       localStorage.removeItem('vityuu_checkout_total');
-    }, 1000);
-
+      localStorage.removeItem('vityuu_payment_pending');
+    }, 2000);
   }, [navigate]);
 
   if (!orderDetails) return null;
@@ -45,43 +44,59 @@ const CheckoutSuccessPage = () => {
   return (
     <>
       <Helmet>
-        <title>Pesanan Berhasil | Vityuu</title>
+        <title>{isPending ? 'Menunggu Pembayaran' : 'Pesanan Berhasil'} | Vityuu</title>
       </Helmet>
 
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
 
-        <main className="flex-grow py-12 md:py-20 overflow-hidden">
+        <main className="flex-grow py-12 md:py-20">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            
+
+            {/* Icon & Judul */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-center mb-10"
             >
               <div className="relative inline-block mb-6">
-                <motion.div 
-                  className="absolute inset-0 bg-primary/20 rounded-full blur-[40px]"
+                <motion.div
+                  className={`absolute inset-0 rounded-full blur-[40px] ${isPending ? 'bg-amber-400/20' : 'bg-primary/20'}`}
                   animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 />
                 <motion.div
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", bounce: 0.5, duration: 0.8 }}
-                  className="w-24 h-24 bg-primary text-primary-foreground rounded-full flex items-center justify-center relative z-10 mx-auto shadow-xl"
+                  transition={{ type: 'spring', bounce: 0.5, duration: 0.8 }}
+                  className={`w-24 h-24 rounded-full flex items-center justify-center relative z-10 mx-auto shadow-xl ${
+                    isPending ? 'bg-amber-400 text-white' : 'bg-primary text-primary-foreground'
+                  }`}
                 >
-                  <CheckCircle className="w-12 h-12" />
+                  {isPending
+                    ? <Clock className="w-12 h-12" />
+                    : <CheckCircle className="w-12 h-12" />}
                 </motion.div>
               </div>
+
               <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3" style={{ letterSpacing: '-0.02em' }}>
-                Pesanan Berhasil!
+                {isPending ? 'Menunggu Pembayaran' : 'Pesanan Berhasil!'}
               </h1>
               <p className="text-base text-muted-foreground max-w-md mx-auto">
-                Terima kasih telah berbelanja di Vityuu. Pesanan Anda sedang kami proses dan akan segera dikirim.
+                {isPending
+                  ? 'Pesanan kamu sudah tersimpan. Selesaikan pembayaran sesuai instruksi yang diberikan.'
+                  : 'Terima kasih telah berbelanja di Vityuu. Pesanan kamu sedang kami proses dan akan segera dikirim.'}
               </p>
+
+              {isPending && (
+                <div className="mt-4 inline-flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-4 py-2 rounded-full text-sm font-medium">
+                  <Clock className="w-4 h-4" />
+                  Status akan diperbarui otomatis setelah pembayaran dikonfirmasi
+                </div>
+              )}
             </motion.div>
 
+            {/* Detail Pesanan */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -90,11 +105,15 @@ const CheckoutSuccessPage = () => {
             >
               <div className="flex items-center justify-between border-b border-border pb-4 mb-6">
                 <h3 className="text-lg font-bold text-foreground">Detail Pesanan</h3>
-                <span className="text-sm font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">
-                  Diproses
+                <span className={`text-sm font-bold px-3 py-1 rounded-full ${
+                  isPending
+                    ? 'text-amber-600 bg-amber-100 dark:bg-amber-900/30'
+                    : 'text-primary bg-primary/10'
+                }`}>
+                  {isPending ? 'Menunggu Bayar' : 'Diproses'}
                 </span>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="flex items-start gap-3">
                   <Package className="w-5 h-5 text-muted-foreground mt-0.5" />
@@ -114,25 +133,28 @@ const CheckoutSuccessPage = () => {
                   <CreditCard className="w-5 h-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Metode Pembayaran</p>
-                    <p className="font-medium text-foreground">{orderDetails.payment.name}</p>
+                    <p className="font-medium text-foreground">{orderDetails.payment?.name || '-'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <MapPin className="w-5 h-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Pengiriman</p>
-                    <p className="font-medium text-foreground">{orderDetails.shipping.fullName}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{orderDetails.shipping.address}</p>
+                    <p className="font-medium text-foreground">{orderDetails.shipping?.fullName || '-'}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{orderDetails.shipping?.address}</p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-8 pt-6 border-t border-dashed border-border flex justify-between items-center">
                 <span className="font-bold text-foreground">Total Pembayaran</span>
-                <span className="font-extrabold text-2xl text-primary">Rp {orderDetails.total.toLocaleString('id-ID')}</span>
+                <span className="font-extrabold text-2xl text-primary">
+                  Rp {orderDetails.total.toLocaleString('id-ID')}
+                </span>
               </div>
             </motion.div>
 
+            {/* Tombol Aksi */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
