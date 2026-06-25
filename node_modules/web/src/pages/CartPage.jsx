@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, CreditCard } from 'lucide-react';
+import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, CreditCard, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Header from '@/components/Header.jsx';
@@ -19,7 +18,22 @@ const CartPage = () => {
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    setCartItems(getCart());
+    // 🔥 AMBIL CART
+    let cart = getCart();
+    
+    // 🔥 HAPUS HANYA YANG PUNYA FLAG _direct: true
+    const directItems = cart.filter(item => item._direct === true);
+    
+    if (directItems.length > 0) {
+      directItems.forEach(item => {
+        removeItemFromCart(item.id);
+      });
+      console.log('🗑️ Direct checkout items removed from cart');
+      // Ambil ulang cart setelah dihapus
+      cart = getCart();
+    }
+    
+    setCartItems(cart);
     
     const handleCartUpdate = () => {
       setCartItems(getCart());
@@ -77,11 +91,25 @@ const CartPage = () => {
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
 
-        <main className="flex-grow py-12">
+        <main className="flex-grow py-8 md:py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-10" style={{ letterSpacing: '-0.02em' }}>
-              Keranjang Belanja
-            </h1>
+            
+            {/* 🔥 TOMBOL BACK KE SHOP */}
+            <div className="flex items-center gap-4 mb-8 md:mb-10">
+              <Link
+                to="/shop"
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-all duration-200 group"
+              >
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-muted/50 hover:bg-muted flex items-center justify-center transition-all group-hover:scale-105 border border-border/50">
+                  <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 group-hover:-translate-x-0.5 transition-transform" />
+                </div>
+                <span className="text-sm md:text-base font-medium hidden sm:inline">Kembali ke Toko</span>
+              </Link>
+              
+              <h1 className="text-2xl md:text-4xl font-bold text-foreground" style={{ letterSpacing: '-0.02em' }}>
+                Keranjang Belanja
+              </h1>
+            </div>
 
             {cartItems.length === 0 ? (
               <div className="text-center py-20 bg-card rounded-3xl border border-border shadow-sm">

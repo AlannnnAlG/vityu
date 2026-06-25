@@ -13,26 +13,27 @@ const Header = () => {
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
 
+  // 🔥 HITUNG JENIS BARANG (UNIQUE ITEMS) - BUKAN TOTAL QUANTITY!
+  const updateCartCount = () => {
+    const cart = getCart();
+    // Filter item yang bukan direct checkout
+    const normalItems = cart.filter(item => item._direct !== true);
+    // 🔥 HITUNG UNIQUE ITEMS (jumlah jenis barang, BUKAN total quantity)
+    const uniqueCount = normalItems.length; // setiap item = 1 jenis
+    setCartCount(uniqueCount);
+  };
+
   useEffect(() => {
-    const updateCartCount = () => {
-      const cart = getCart();
-      const count = cart.reduce((total, item) => total + item.quantity, 0);
-      setCartCount(count);
-    };
-    
     updateCartCount();
     window.addEventListener('vityuu_cart_updated', updateCartCount);
     return () => window.removeEventListener('vityuu_cart_updated', updateCartCount);
   }, []);
 
-  // 🔥 NAV LINKS - TAMBAHIN TRACKER & INSIGHTS
   const navLinks = [
     { name: 'Home', path: '/' },
     { name: 'Shop', path: '/shop' },
     { name: 'Blog', path: '/blog' },
     { name: 'About', path: '/about' },
-     { name: 'Tracker', path: '/tracker', icon: Flame },
-    { name: 'Insights', path: '/insights', icon: BarChart3 },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -40,6 +41,15 @@ const Header = () => {
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  // 🔒 Guard: kalau belum login, redirect ke /login
+  const handleProtectedNav = (path) => {
+    if (!currentUser) {
+      navigate('/login', { state: { from: path } });
+    } else {
+      navigate(path);
+    }
   };
 
   return (
@@ -61,20 +71,35 @@ const Header = () => {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`text-sm font-medium transition-all duration-300 flex items-center gap-1.5 ${
+                className={`text-sm font-medium transition-all duration-300 ${
                   isActive(link.path)
                     ? 'text-primary font-bold relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-[2px] after:bg-primary after:rounded-full'
                     : 'text-foreground hover:text-primary'
                 }`}
               >
-                {link.icon && <link.icon className="w-4 h-4" />}
                 {link.name}
               </Link>
             ))}
           </nav>
 
           {/* Right Section */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-2">
+
+            {/* 🔥 Tracker Button */}
+            <button
+              onClick={() => handleProtectedNav('/tracker')}
+              title="Craving Tracker"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive('/tracker')
+                  ? 'text-primary bg-primary/10'
+                  : 'text-foreground hover:text-primary hover:bg-muted'
+              }`}
+            >
+              <Flame className="w-4 h-4" />
+              Tracker
+            </button>
+
+            {/* Cart - HITUNG JENIS BARANG */}
             <Link to="/cart" className="relative p-2 text-foreground hover:text-primary transition-colors">
               <ShoppingCart className="w-6 h-6" />
               {cartCount > 0 && (
@@ -154,7 +179,19 @@ const Header = () => {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="flex items-center gap-4 md:hidden">
+          <div className="flex items-center gap-1 md:hidden">
+            {/* Mobile Tracker */}
+            <button
+              onClick={() => handleProtectedNav('/tracker')}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                isActive('/tracker') ? 'text-primary bg-primary/10' : 'text-foreground hover:bg-muted'
+              }`}
+            >
+              <Flame className="w-4 h-4" />
+              Tracker
+            </button>
+
+            {/* Cart Mobile - HITUNG JENIS BARANG */}
             <Link to="/cart" className="relative p-2 text-foreground">
               <ShoppingCart className="w-6 h-6" />
               {cartCount > 0 && (
@@ -182,13 +219,12 @@ const Header = () => {
                 key={link.path}
                 to={link.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-3 rounded-xl text-base font-medium transition-all flex items-center gap-3 ${
+                className={`block px-4 py-3 rounded-xl text-base font-medium transition-all ${
                   isActive(link.path)
                     ? 'bg-primary/10 text-primary font-bold'
                     : 'text-foreground hover:bg-muted'
                 }`}
               >
-                {link.icon && <link.icon className="w-5 h-5" />}
                 {link.name}
               </Link>
             ))}

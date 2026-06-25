@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   ShoppingCart as CartIcon, Star, Package, Search,
-  SlidersHorizontal, Tag, CheckCircle2, X,
+  Tag, X, Plus, Minus,
+  ShoppingBag, Zap,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Header from '@/components/Header.jsx';
@@ -13,29 +14,40 @@ import pb from '@/lib/pocketbaseClient.js';
 import { addToCart } from '@/lib/cartUtils.js';
 import { toast } from 'sonner';
 
-// 🔥 KATEGORI - LABEL SUDAH DISESUAIKAN UNTUK VITYUU
 const CATEGORIES = [
-  { value: 'all', label: '📦 Semua' },
+  { value: 'all', label: 'Semua' },
   { value: 'skincare', label: '🍵 Teh Herbal' },
   { value: 'bodycare', label: '🌿 Minuman Herbal' },
   { value: 'makeup', label: '💄 Makeup' },
   { value: 'haircare', label: '💇 Haircare' },
 ];
 
-// 🔥 FUNGSI MAPPING KATEGORI KE LABEL
 const getCategoryLabel = (kategori) => {
   const map = {
-    'skincare': '🍵 Teh Herbal',
-    'bodycare': '🌿 Minuman Herbal',
-    'makeup': '💄 Makeup',
-    'haircare': '💇 Haircare'
+    skincare: '🍵 Teh Herbal',
+    bodycare: '🌿 Minuman Herbal',
+    makeup: '💄 Makeup',
+    haircare: '💇 Haircare',
   };
   return map[kategori] || kategori || 'Produk';
 };
 
-// ─── Mini Cart Drawer ─────────────────────────────────────────────────────────
-const CartDrawer = ({ items, onClose, onCheckout }) => {
-  const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+// ─── Product Modal ─────────────────────────────────────────────────────────────
+const ProductQtyModal = ({ product, mode, onClose, onConfirm }) => {
+  const [qty, setQty] = useState(1);
+  const imageUrl = product.gambar_produk
+    ? pb.files.getURL(product, product.gambar_produk)
+    : null;
+  const hasDiscount = product.harga_diskon && product.harga_diskon < product.harga;
+  const finalPrice = product.harga_diskon || product.harga;
+  const discountPct = hasDiscount
+    ? Math.round(((product.harga - product.harga_diskon) / product.harga) * 100)
+    : 0;
+  const maxQty = product.stok || 99;
+
+  const handleQty = (val) => setQty(Math.max(1, Math.min(maxQty, val)));
+
+  const isBuyNow = mode === 'buynow';
 
   return (
     <AnimatePresence>
@@ -43,68 +55,142 @@ const CartDrawer = ({ items, onClose, onCheckout }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex justify-end"
-        style={{ backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4"
+        style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <motion.div
-          initial={{ x: '100%' }}
-          animate={{ x: 0 }}
-          exit={{ x: '100%' }}
-          transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-          className="w-full max-w-sm bg-white dark:bg-gray-900 h-full flex flex-col shadow-2xl"
+          initial={{ y: 80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 80, opacity: 0 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+          className="relative w-full sm:max-w-md bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
         >
-          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-800">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <CartIcon className="w-5 h-5 text-emerald-500" /> Keranjang
-            </h2>
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 transition-colors">
-              <X className="w-4 h-4" />
-            </button>
+          <div className="flex justify-center pt-3 pb-1 sm:hidden">
+            <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-            {items.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
-                <CartIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Keranjang masih kosong</p>
+          <div className={`h-1 hidden sm:block ${isBuyNow ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-emerald-400 to-teal-400'}`} />
+
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          >
+            <X className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+          </button>
+
+          <div className="px-5 pt-4 pb-0">
+            <span className={`inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+              isBuyNow
+                ? 'bg-emerald-500 text-white'
+                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
+            }`}>
+              {isBuyNow ? '⚡ Beli Sekarang' : '🛒 Tambah ke Keranjang'}
+            </span>
+          </div>
+
+          <div className="flex items-start gap-4 px-5 pt-3 pb-5 border-b border-gray-100 dark:border-gray-800">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gray-50 to-emerald-50 dark:from-gray-800 dark:to-emerald-950/30 flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-100 dark:border-gray-700">
+              {imageUrl
+                ? <img src={imageUrl} alt={product.nama_produk} className="w-full h-full object-contain p-1" />
+                : <Package className="w-8 h-8 text-gray-300" />}
+            </div>
+            <div className="flex-1 min-w-0 pr-8">
+              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mb-1">
+                {getCategoryLabel(product.kategori)}
+              </p>
+              <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-snug line-clamp-2 mb-2">
+                {product.nama_produk}
+              </h3>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
+                  Rp {(finalPrice * qty).toLocaleString('id-ID')}
+                </span>
+                {hasDiscount && (
+                  <span className="text-xs text-gray-400 line-through">
+                    Rp {(product.harga * qty).toLocaleString('id-ID')}
+                  </span>
+                )}
               </div>
-            ) : (
-              items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-100 dark:border-gray-700">
-                    {item.image
-                      ? <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />
-                      : <Package className="w-6 h-6 text-gray-300" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 line-clamp-1">{item.name}</p>
-                    <p className="text-xs text-gray-400">x{item.qty}</p>
-                  </div>
-                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                    Rp {(item.price * item.qty).toLocaleString('id-ID')}
-                  </p>
-                </div>
-              ))
-            )}
+              {hasDiscount && (
+                <span className="inline-block mt-1 text-[10px] font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 px-2 py-0.5 rounded-full">
+                  Hemat {discountPct}%
+                </span>
+              )}
+            </div>
           </div>
 
-          {items.length > 0 && (
-            <div className="px-6 py-5 border-t border-gray-100 dark:border-gray-800 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">Total</span>
-                <span className="text-xl font-extrabold text-gray-900 dark:text-white">
-                  Rp {total.toLocaleString('id-ID')}
+          <div className="px-5 py-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Stok tersedia</span>
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{maxQty} pcs</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Jumlah</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleQty(qty - 1)}
+                  disabled={qty <= 1}
+                  className="w-9 h-9 rounded-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center transition-all hover:border-emerald-400 hover:text-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed active:scale-90"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <input
+                  type="number"
+                  value={qty}
+                  min={1}
+                  max={maxQty}
+                  onChange={(e) => handleQty(parseInt(e.target.value) || 1)}
+                  className="w-14 text-center font-bold text-lg text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl py-1.5 focus:outline-none focus:border-emerald-400 transition-colors"
+                />
+                <button
+                  onClick={() => handleQty(qty + 1)}
+                  disabled={qty >= maxQty}
+                  className="w-9 h-9 rounded-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center transition-all hover:border-emerald-400 hover:text-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed active:scale-90"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl p-4">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500 dark:text-gray-400">
+                  Rp {finalPrice.toLocaleString('id-ID')} × {qty}
+                </span>
+                <span className="font-extrabold text-emerald-700 dark:text-emerald-400 text-base">
+                  Rp {(finalPrice * qty).toLocaleString('id-ID')}
                 </span>
               </div>
-              <button
-                onClick={onCheckout}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-3.5 rounded-2xl transition-all shadow-md active:scale-[0.98]"
-              >
-                Lanjut ke Checkout →
-              </button>
+              {hasDiscount && (
+                <div className="flex justify-between items-center text-xs mt-1.5 text-gray-400">
+                  <span>Harga asli</span>
+                  <span className="line-through">Rp {(product.harga * qty).toLocaleString('id-ID')}</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="px-5 pb-6">
+            {isBuyNow ? (
+              <button
+                onClick={() => onConfirm(qty)}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-3.5 rounded-2xl transition-all active:scale-95 shadow-md shadow-emerald-200 dark:shadow-emerald-900/30"
+              >
+                <Zap className="w-4 h-4" />
+                Lanjut ke Checkout
+              </button>
+            ) : (
+              <button
+                onClick={() => onConfirm(qty)}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-2xl transition-all active:scale-95 shadow-md shadow-emerald-200 dark:shadow-emerald-900/30"
+              >
+                <CartIcon className="w-4 h-4" />
+                Tambah ke Keranjang
+              </button>
+            )}
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
@@ -112,8 +198,7 @@ const CartDrawer = ({ items, onClose, onCheckout }) => {
 };
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
-const ProductCard = ({ product, index, onAddToCart, onCheckout }) => {
-  const [added, setAdded] = useState(false);
+const ProductCard = ({ product, index, onOpenCartModal, onOpenBuyNowModal }) => {
   const imageUrl = product.gambar_produk
     ? pb.files.getURL(product, product.gambar_produk)
     : null;
@@ -121,94 +206,86 @@ const ProductCard = ({ product, index, onAddToCart, onCheckout }) => {
   const discountPct = hasDiscount
     ? Math.round(((product.harga - product.harga_diskon) / product.harga) * 100)
     : 0;
-
-  const handleAdd = (e) => {
-    e.preventDefault();
-    onAddToCart(product);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1800);
-  };
+  const finalPrice = product.harga_diskon || product.harga;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.45, delay: index * 0.05 }}
-      className="group flex flex-col bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 overflow-hidden hover:shadow-2xl hover:shadow-gray-200/60 dark:hover:shadow-black/40 hover:-translate-y-1.5 transition-all duration-300"
+      transition={{ duration: 0.4, delay: index * 0.04 }}
+      className="group flex flex-col bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden hover:shadow-xl hover:shadow-gray-200/60 dark:hover:shadow-black/40 hover:-translate-y-1 transition-all duration-300"
     >
-      {/* Image */}
-      <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-emerald-50/30 dark:from-gray-800 dark:to-emerald-950/20 flex items-center justify-center p-6 overflow-hidden">
-        {hasDiscount && (
-          <span className="absolute top-3 left-3 z-10 bg-rose-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-            <Tag className="w-2.5 h-2.5" /> -{discountPct}%
-          </span>
-        )}
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={product.nama_produk}
-            className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 drop-shadow-lg"
-          />
-        ) : (
-          <Package className="w-16 h-16 text-gray-300" />
-        )}
+      <div
+        className="relative bg-gradient-to-br from-gray-50 to-emerald-50/40 dark:from-gray-800 dark:to-emerald-950/20 overflow-hidden"
+        style={{ paddingTop: '100%' }}
+      >
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          {hasDiscount && (
+            <span className="absolute top-2.5 left-2.5 z-10 bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Tag className="w-2.5 h-2.5" /> -{discountPct}%
+            </span>
+          )}
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={product.nama_produk}
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 drop-shadow-md"
+            />
+          ) : (
+            <Package className="w-14 h-14 text-gray-300" />
+          )}
+        </div>
       </div>
 
-      {/* Body */}
-      <div className="flex flex-col flex-grow p-4">
-        <div className="flex items-center justify-between mb-2">
-          {/* 🔥 PAKE getCategoryLabel BIAR TAMPIL BAGUS */}
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
+      <div className="flex flex-col flex-grow p-3.5">
+        <div className="flex items-center justify-between gap-1 mb-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full truncate max-w-[70%]">
             {getCategoryLabel(product.kategori)}
           </span>
-          <div className="flex items-center gap-1">
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-bold text-gray-700 dark:text-gray-200">4.9</span>
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+            <span className="text-[11px] font-bold text-gray-700 dark:text-gray-200">4.9</span>
           </div>
         </div>
 
-        <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1 line-clamp-2 leading-snug">
+        <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-snug line-clamp-2 mb-1">
           {product.nama_produk}
         </h3>
 
         {product.deskripsi && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 line-clamp-2 mb-3 leading-relaxed flex-grow">
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 line-clamp-2 mb-2 leading-relaxed flex-grow">
             {product.deskripsi}
           </p>
         )}
 
-        <div className="mt-auto">
-          <div className="flex items-baseline gap-2 mb-3">
-            <span className="text-lg font-extrabold text-gray-900 dark:text-white">
-              Rp {(product.harga_diskon || product.harga).toLocaleString('id-ID')}
+        <div className="mt-auto space-y-2.5">
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-base font-extrabold text-gray-900 dark:text-white">
+              Rp {finalPrice.toLocaleString('id-ID')}
             </span>
             {hasDiscount && (
-              <span className="text-xs text-gray-400 line-through">
+              <span className="text-[11px] text-gray-400 line-through">
                 Rp {product.harga.toLocaleString('id-ID')}
               </span>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          {/* 🔥 TOMBOL: MOBILE = ATAS BAWAH, DESKTOP = SAMPINGAN */}
+          <div className="flex flex-col sm:flex-row gap-1.5">
             <button
-              onClick={handleAdd}
-              className={`flex items-center justify-center gap-1.5 font-bold py-2.5 rounded-xl transition-all active:scale-95 text-xs ${
-                added
-                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-sm shadow-emerald-200 dark:shadow-emerald-900/20'
-              }`}
+              onClick={() => onOpenCartModal(product)}
+              className="flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-semibold py-2.5 px-2 rounded-xl transition-all active:scale-95 border border-emerald-200 dark:border-emerald-800 text-xs w-full sm:w-auto sm:flex-1 whitespace-nowrap"
             >
-              {added
-                ? <><CheckCircle2 className="w-3.5 h-3.5" /> Ditambahkan!</>
-                : <><CartIcon className="w-3.5 h-3.5" /> Keranjang</>
-              }
+              <CartIcon className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Keranjang</span>
             </button>
             <button
-              onClick={(e) => { e.preventDefault(); handleAdd(e); onCheckout(); }}
-              className="flex items-center justify-center gap-1.5 font-bold py-2.5 rounded-xl transition-all active:scale-95 text-xs bg-gray-900 dark:bg-white hover:bg-gray-700 dark:hover:bg-gray-100 text-white dark:text-gray-900 shadow-sm"
+              onClick={() => onOpenBuyNowModal(product)}
+              className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold py-2.5 px-2 rounded-xl transition-all active:scale-95 text-xs w-full sm:w-auto sm:flex-1 whitespace-nowrap"
             >
-              Checkout →
+              <Zap className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Beli Sekarang</span>
             </button>
           </div>
         </div>
@@ -220,12 +297,12 @@ const ProductCard = ({ product, index, onAddToCart, onCheckout }) => {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const ShopPage = () => {
   const navigate = useNavigate();
-  const [products, setProducts]             = useState([]);
-  const [loading, setLoading]               = useState(true);
-  const [search, setSearch]                 = useState('');
+  const [products, setProducts]         = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [search, setSearch]             = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
-  const [cartItems, setCartItems]           = useState([]);
-  const [cartOpen, setCartOpen]             = useState(false);
+  const [cartItems, setCartItems]       = useState([]);
+  const [modal, setModal] = useState(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -247,31 +324,53 @@ const ShopPage = () => {
     fetchProducts();
   }, []);
 
-  const handleAddToCart = useCallback((product) => {
+  const handleAddToCart = useCallback((product, qty = 1) => {
     const item = {
       id:    product.id,
       name:  product.nama_produk,
       price: product.harga_diskon || product.harga,
       image: product.gambar_produk ? pb.files.getURL(product, product.gambar_produk) : null,
     };
-    addToCart(item, 1);
+    addToCart(item, qty);
     setCartItems((prev) => {
       const exist = prev.find((i) => i.id === item.id);
-      if (exist) return prev.map((i) => i.id === item.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { ...item, qty: 1 }];
-    });
-    toast.success(`${product.nama_produk} ditambahkan!`, {
-      action: { label: 'Lihat Keranjang', onClick: () => setCartOpen(true) },
+      if (exist) return prev.map((i) => i.id === item.id ? { ...i, qty: i.qty + qty } : i);
+      return [...prev, { ...item, qty }];
     });
   }, []);
+
+  const handleBuyNow = useCallback((product, qty = 1) => {
+    const item = {
+      id:    product.id,
+      name:  product.nama_produk,
+      price: product.harga_diskon || product.harga,
+      image: product.gambar_produk ? pb.files.getURL(product, product.gambar_produk) : null,
+      _direct: true,
+    };
+    addToCart(item, qty);
+    navigate(`/checkout?items=${product.id}`);
+  }, [navigate]);
+
+  const handleModalConfirm = useCallback((qty) => {
+    if (!modal) return;
+    const { product, mode } = modal;
+
+    setModal(null);
+
+    if (mode === 'buynow') {
+      handleBuyNow(product, qty);
+    } else {
+      handleAddToCart(product, qty);
+      toast.success(`${product.nama_produk} ditambahkan ke keranjang!`);
+      window.dispatchEvent(new Event('vityuu_cart_updated'));
+    }
+  }, [modal, handleAddToCart, handleBuyNow]);
 
   const filtered = products.filter((p) => {
     const matchSearch = p.nama_produk.toLowerCase().includes(search.toLowerCase());
     const matchCat    = activeCategory === 'all' || p.kategori === activeCategory;
     return matchSearch && matchCat;
   });
-
-  const totalCartQty = cartItems.reduce((s, i) => s + i.qty, 0);
 
   return (
     <>
@@ -280,109 +379,97 @@ const ShopPage = () => {
         <meta name="description" content="Katalog resmi produk Vityuu." />
       </Helmet>
 
-      <div className="min-h-screen bg-[#f8f9fb] dark:bg-gray-950 pb-20 font-sans">
+      <div className="min-h-screen bg-[#f7f8fa] dark:bg-gray-950 pb-20 font-sans">
         <Header />
 
-        {/* Hero */}
-        <section className="py-16 bg-gradient-to-b from-white dark:from-gray-900 to-transparent border-b border-gray-100 dark:border-gray-800">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+        <section className="py-12 md:py-16 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <span className="inline-block text-xs font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-400 px-4 py-1.5 rounded-full mb-4">
                 Koleksi Terlengkap
               </span>
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4" style={{ letterSpacing: '-0.02em' }}>
-                Katalog <span className="bg-gradient-to-r from-emerald-500 to-teal-400 bg-clip-text text-transparent">Produk Vityuu</span>
+              <h1 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
+                Katalog{' '}
+                <span className="bg-gradient-to-r from-emerald-500 to-teal-400 bg-clip-text text-transparent">
+                  Produk Vityuu
+                </span>
               </h1>
-              <p className="text-base text-gray-500 dark:text-gray-400 max-w-xl mx-auto">
+              <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 max-w-md mx-auto">
                 Solusi terlengkap untuk membantu rutinitas diet gula harian Anda.
               </p>
             </motion.div>
           </div>
         </section>
 
-        {/* Filter & Search */}
-        <section className="py-4 border-b border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 sticky top-0 z-30 backdrop-blur-md shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row gap-3 items-center justify-between">
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Cari produk..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-xl"
-              />
+        <section className="sticky top-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="relative flex-1 max-w-xs">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <Input
+                  placeholder="Cari produk..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-9 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+                />
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-              <div className="flex items-center gap-2 overflow-x-auto">
-                <SlidersHorizontal className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.value}
-                    onClick={() => setActiveCategory(cat.value)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all border ${
-                      activeCategory === cat.value
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white border-transparent shadow-sm'
-                        : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-emerald-400 hover:text-emerald-600'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Cart button — muncul kalau ada item */}
-              {totalCartQty > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none -mx-1 px-1">
+              {CATEGORIES.map((cat) => (
                 <button
-                  onClick={() => setCartOpen(true)}
-                  className="flex-shrink-0 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-full transition-all shadow-md"
+                  key={cat.value}
+                  onClick={() => setActiveCategory(cat.value)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+                    activeCategory === cat.value
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-sm'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40'
+                  }`}
                 >
-                  <CartIcon className="w-4 h-4" />
-                  <span className="text-sm">{totalCartQty}</span>
-                  <span className="hidden sm:inline text-sm">Checkout</span>
+                  {cat.label}
                 </button>
-              )}
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Products */}
-        <section className="py-12">
+        <section className="py-8 md:py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {!loading && filtered.length > 0 && (
-              <p className="text-sm text-gray-400 mb-6">
+              <p className="text-xs text-gray-400 mb-5">
                 Menampilkan <span className="font-bold text-gray-700 dark:text-gray-200">{filtered.length}</span> produk
               </p>
             )}
 
-            {/* Skeleton */}
             {loading && (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
                 {[...Array(8)].map((_, i) => (
-                  <div key={i} className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 overflow-hidden animate-pulse">
+                  <div key={i} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden animate-pulse">
                     <div className="aspect-square bg-gray-100 dark:bg-gray-800" />
-                    <div className="p-4 space-y-3">
-                      <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full w-1/3" />
-                      <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-full w-3/4" />
-                      <div className="h-6 bg-gray-100 dark:bg-gray-800 rounded-full w-1/2" />
-                      <div className="h-10 bg-gray-100 dark:bg-gray-800 rounded-xl" />
+                    <div className="p-3.5 space-y-2.5">
+                      <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full w-2/5" />
+                      <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-full w-4/5" />
+                      <div className="h-5 bg-gray-100 dark:bg-gray-800 rounded-full w-1/2" />
+                      <div className="flex flex-col sm:flex-row gap-1.5">
+                        <div className="flex-1 h-9 bg-gray-100 dark:bg-gray-800 rounded-xl w-full" />
+                        <div className="flex-1 h-9 bg-gray-100 dark:bg-gray-800 rounded-xl w-full" />
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Empty */}
             {!loading && filtered.length === 0 && (
-              <div className="text-center py-24 flex flex-col items-center gap-4">
-                <div className="w-20 h-20 rounded-3xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                  <Package className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+              <div className="text-center py-20 flex flex-col items-center gap-4">
+                <div className="w-16 h-16 rounded-3xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <Package className="w-8 h-8 text-gray-300 dark:text-gray-600" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Produk tidak ditemukan</h3>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">Produk tidak ditemukan</h3>
                 <p className="text-gray-400 text-sm max-w-xs">
                   {search || activeCategory !== 'all'
                     ? 'Coba ubah filter atau kata kunci pencarian.'
-                    : 'Belum ada produk yang ditambahkan oleh admin.'}
+                    : 'Belum ada produk yang tersedia.'}
                 </p>
                 {(search || activeCategory !== 'all') && (
                   <button
@@ -395,16 +482,15 @@ const ShopPage = () => {
               </div>
             )}
 
-            {/* Grid */}
             {!loading && filtered.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5">
                 {filtered.map((product, index) => (
                   <ProductCard
                     key={product.id}
                     product={product}
                     index={index}
-                    onAddToCart={handleAddToCart}
-                    onCheckout={() => { handleAddToCart(product); navigate('/checkout'); }}
+                    onOpenCartModal={(p) => setModal({ product: p, mode: 'cart' })}
+                    onOpenBuyNowModal={(p) => setModal({ product: p, mode: 'buynow' })}
                   />
                 ))}
               </div>
@@ -415,12 +501,12 @@ const ShopPage = () => {
         <Footer />
       </div>
 
-      {/* Mini Cart Drawer */}
-      {cartOpen && (
-        <CartDrawer
-          items={cartItems}
-          onClose={() => setCartOpen(false)}
-          onCheckout={() => { setCartOpen(false); navigate('/checkout'); }}
+      {modal && (
+        <ProductQtyModal
+          product={modal.product}
+          mode={modal.mode}
+          onClose={() => setModal(null)}
+          onConfirm={handleModalConfirm}
         />
       )}
     </>
